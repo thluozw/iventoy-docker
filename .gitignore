@@ -1,0 +1,47 @@
+# Ignore patterns for iVentoy Docker project
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~ fifo fifo log core dump vmcore
+.directory
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.tar.gz
+*.tar
+*.log
+
+# ISO files (usually large, don't commit)
+iso/*.iso
+*.iso
+
+# Data directory (runtime data)
+data/*
+!data/.gitkeep
+
+# Docker
+.dockerignore
+
+# Environment variables
+.env
+.\env
+
+# Temporary files
+tmp/
+temp/
+*.tmp
