@@ -1,53 +1,57 @@
 # iVentoy Docker Image - Multi-Architecture Support
 # Supports: linux/amd64, linux/arm64
-# Based on: https://github.com/ziggyds/iventoy
-
-ARG ARCH=amd64
-FROM --platform=\${BUILDPLATFORM} alpine:latest AS builder
 
 ARG IVENTOY_VERSION=1.0.37
 ARG IVENTOY_SUFFIX_amd64=free
 ARG IVENTOY_SUFFIX_arm64=trial
-ARG ARCH
+
+# ==================== Builder Stage ====================
+FROM --platform=$BUILDPLATFORM alpine:latest AS builder
+
+ARG IVENTOY_VERSION
+ARG IVENTOY_SUFFIX_amd64
+ARG IVENTOY_SUFFIX_arm64
 ARG BUILDPLATFORM
 
-RUN echo "Building for platform: ${BUILDPLATFORM}, ARCH: ${ARCH}"
+# Determine architecture for download
+RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" && \
+    if [ "${BUILDPLATFORM}" = "linux/arm64" ]; then \
+        export ARCH_SUFFIX="${IVENTOY_SUFFIX_arm64}"; \
+        export ARCH_NAME="arm64"; \
+    else \
+        export ARCH_SUFFIX="${IVENTOY_SUFFIX_amd64}"; \
+        export ARCH_NAME="x86_64"; \
+    fi && \
+    echo "Building for: linux/${ARCH_NAME}, suffix: ${ARCH_SUFFIX}"
 
 # Install dependencies
 RUN apk add --no-cache \
     wget \
-    unzip \
-    curl
+    curl \
+    tar
 
-# Download iVentoy based on architecture
+# Download iVentoy
 WORKDIR /tmp
-RUN if [ "${ARCH}" = "arm64" ]; then \
-        IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-arm64-${IVENTOY_SUFFIX_arm64}.tar.gz"; \
-    else \
-        IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-x86_64-${IVENTOY_SUFFIX_amd64}.tar.gz"; \
-    fi && \
+RUN IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-${ARCH_NAME}-${ARCH_SUFFIX}.tar.gz" && \
     IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/${IVENTOY_FILE}" && \
-    echo "Downloading from: ${IVENTOY_URL}" && \
-    wget -q "${IVENTOY_URL}" -O iventoy.tar.gz && \
+    echo "Downloading: ${IVENTOY_URL}" && \
+    wget --no-verbose --show-progress "${IVENTOY_URL}" -O iventoy.tar.gz && \
     tar -xzf iventoy.tar.gz && \
-    rm iventoy.tar.gz
+    rm -f iventoy.tar.gz && \
+    echo "Download and extraction complete"
 
-# Final stage
+# ==================== Final Stage ====================
 FROM alpine:latest
 
 LABEL maintainer="thluozw"
 LABEL description="iVentoy in Docker - Multi-architecture support (amd64/arm64)"
 
-ARG ARCH
-ENV ARCH=${ARCH}
-
 # Install runtime dependencies
 RUN apk add --no-cache \
-    openrc \
-    tini \
     bash \
     curl \
-    netcat-openbsd
+    openrc \
+    tini
 
 # Copy iVentoy from builder
 COPY --from=builder /tmp/iventoy /iventoy
@@ -58,10 +62,9 @@ WORKDIR /iventoy
 RUN mkdir -p /iventoy/iso \
     && mkdir -p /iventoy/data \
     && chmod +x /iventoy/iventoy.sh \
-    && chmod +x /iventoy/iventoy \
-    && ln -sf /iventoy/iventoy.sh /usr/local/bin/iventoy
+    && chmod +x /iventoy/iventoy
 
-# Expose ports (iVentoy default ports)
+# Expose ports
 # 16000 - HTTP service
 # 69 - TFTP service (UDP)
 # 67, 68 - DHCP service (UDP)
@@ -79,11 +82,11 @@ ENV IVENTOY_DATA_PATH=/iventoy/data
 ENV IVENTOY_HTTP_PORT=16000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD nc -z localhost 16000 || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:16000 || exit 1
 
 # Use tini as init system
 ENTRYPOINT ["/sbin/tini", "--"]
 
-# Default command
+# Default command - run iventoy in daemon mode
 CMD ["/iventoy/iventoy.sh", "-R"]
