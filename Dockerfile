@@ -41,11 +41,17 @@ LABEL maintainer="thluozw"
 LABEL description="iVentoy in Docker - Multi-architecture support (amd64/arm64)"
 
 # Install runtime dependencies
+# Note: Install GNU grep (grep-gnu) to replace BusyBox grep
+# iVentoy's iventoy.sh uses 'grep -P' which is not supported by BusyBox
 RUN apk add --no-cache \
     bash \
     curl \
     openrc \
-    tini
+    tini \
+    grep-gnu
+
+# Make sure GNU grep is used (it's installed as /usr/bin/grep-gnu)
+RUN ln -sf /usr/bin/grep-gnu /usr/local/bin/grep || true
 
 # Copy iVentoy from builder
 COPY --from=builder /tmp/iventoy /iventoy
