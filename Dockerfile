@@ -1,15 +1,16 @@
 # iVentoy Docker Image - Multi-Architecture Support
 # Supports: linux/amd64, linux/arm64
 # Based on: https://github.com/ziggyds/iventoy
+# Base image: Ubuntu (needed for glibc compatibility)
 
 # ==================== Builder Stage ====================
-FROM --platform=$BUILDPLATFORM alpine:latest AS builder
+FROM --platform=$BUILDPLATFORM ubuntu:latest AS builder
 
 ARG IVENTOY_VERSION=1.0.37
 ARG TARGETPLATFORM
 
 # Install dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     wget \
     curl \
     tar \
@@ -35,53 +36,29 @@ RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
     echo "✅ iVentoy ${IVENTOY_VERSION} downloaded and prepared successfully"
 
 # ==================== Fix iventoy.sh ====================
-# Fix multiple issues in iventoy.sh:
-# 1. Replace 'grep -P' with 'grep -E' (BusyBox grep doesn't support -P)
-# 2. Fix parameter check logic (missing '!', causing wrong usage message)
+# Fix parameter check logic (missing '!', causing wrong usage message)
 RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
-        # Fix 1: Replace ALL 'grep -P' with 'grep -E'
-        sed -i 's/grep -P/grep -E/g' /tmp/iventoy/iventoy.sh && \
-        echo "✅ Fixed iventoy.sh: replaced all 'grep -P' with 'grep -E'" && \
-        \
-        # Fix 2: Add missing '!' in parameter check
+        # Fix: Add missing '!' in parameter check
         # The original code shows usage when parameter IS valid (WRONG!)
         # We need to show usage when parameter is NOT valid
-        # Use awk to find and fix the line properly
-        awk ' \
-        /\/grep -E -q.*start.*stop.*status/ { \
-            if (match($0, /if echo.*\$1.*grep.*start.*stop.*status/)) { \
-                gsub(/if echo/, "if ! echo"); \
-                print; \
-                next; \
-            } \
-        } \
-        { print } \
-        ' /tmp/iventoy/iventoy.sh > /tmp/iventoy/iventoy.sh.tmp && \
-        mv /tmp/iventoy/iventoy.sh.tmp /tmp/iventoy/iventoy.sh && \
-        chmod +x /tmp/iventoy/iventoy.sh && \
+        sed -i 's/if echo \$1 | grep.*start.*stop.*status/if ! echo $1 | grep -q "start\\|stop\\|status"/' /tmp/iventoy/iventoy.sh && \
         echo "✅ Fixed iventoy.sh: added missing '!' in parameter check"; \
     else \
         echo "⚠️ iventoy.sh not found, skipping fix"; \
     fi
 
-# Show the fixed part for verification
-RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
-        echo "=== Verifying fix ===" && \
-        grep -A 2 -B 2 'start.*stop.*status' /tmp/iventoy/iventoy.sh | head -20; \
-    fi
-
 # ==================== Final Stage ====================
-FROM alpine:latest
+FROM ubuntu:latest
 
 LABEL maintainer="thluozw"
 LABEL description="iVentoy in Docker - Multi-architecture support (amd64/arm64)"
 
 # Install runtime dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     bash \
     curl \
-    openrc \
-    tini
+    procps \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy iVentoy from builder
 COPY --from=builder /tmp/iventoy /iventoy
@@ -92,7 +69,7 @@ WORKDIR /iventoy
 RUN mkdir -p /iventoy/iso \
     && mkdir -p /iventoy/data \
     && chmod +x /iventoy/iventoy.sh \
-    && chmod +x /iventoy/iventoy \
+    && chmod +x /iventoy/lib/iventoy \
     && ln -sf /iventoy/iventoy.sh /usr/local/bin/iventoy || true
 
 # ExPOSE ports (iVentoy default ports)
@@ -115,9 +92,6 @@ ENV IVENTOY_HTTP_PORT=16000
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:16000 || exit 1
-
-# Use tini as init system
-ENTRYPOINT ["/sbin/tini", "--"]
 
 # Default command
 # iventoy.sh accepts: start, stop, status
