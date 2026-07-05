@@ -119,10 +119,10 @@ EOF
 RUN chmod +x /iventoy/start.sh
 
 # ExPOSE ports (iVentoy default ports)
-# 16000 - HTTP service
+# 26000 - HTTP API service (Web UI)
 # 69 - TFTP service (UDP)
 # 67, 68 - DHCP service (UDP)
-EXPOSE 16000/tcp
+EXPOSE 26000/tcp
 EXPOSE 69/udp
 EXPOSE 67/udp
 EXPOSE 68/udp
@@ -133,11 +133,11 @@ VOLUME ["/iventoy/iso", "/iventoy/data"]
 # Environment variables
 ENV IVENTOY_ISO_PATH=/iventoy/iso
 ENV IVENTOY_DATA_PATH=/iventoy/data
-ENV IVENTOY_HTTP_PORT=16000
+ENV IVENTOY_HTTP_PORT=26000
 
-# Health check
+# Health check (check the correct Web UI port)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:16000 || exit 1
+    CMD curl -f http://localhost:26000 || exit 1
 
 # Use tini as init system, then run our start script
 ENTRYPOINT ["/usr/bin/tini", "--"]
