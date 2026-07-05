@@ -30,10 +30,22 @@ RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
     wget --no-verbose --show-progress "${IVENTOY_URL}" -O iventoy.tar.gz && \
     tar -xzf iventoy.tar.gz && \
     rm -f iventoy.tar.gz && \
-    echo "Contents after extraction:" && \
+    echo "=== Contents after extraction ===" && \
     ls -la && \
-    mv iventoy-* iventoy || true && \
+    echo "=== Renaming directory ===" && \
+    mv iventoy-* iventoy && \
+    echo "=== Final directory structure ===" && \
+    ls -la iventoy/ && \
+    echo "=== data directory ===" && \
+    ls -la iventoy/data/ && \
     echo "鉁?iVentoy ${IVENTOY_VERSION} downloaded and prepared successfully"
+
+# Verify all required files exist
+RUN echo "=== Verifying required files ===" && \
+    test -f /tmp/iventoy/lib/iventoy && echo "鉁?lib/iventoy exists" && \
+    test -f /tmp/iventoy/data/iventoy.dat && echo "鉁?data/iventoy.dat exists" || (echo "鉂?data/iventoy.dat missing!" && exit 1) && \
+    test -f /tmp/iventoy/data/mac.db && echo "鉁?data/mac.db exists" || (echo "鉂?data/mac.db missing!" && exit 1) && \
+    echo "鉁?All required files present"
 
 # ==================== Final Stage ====================
 FROM ubuntu:latest
@@ -58,7 +70,10 @@ WORKDIR /iventoy
 RUN mkdir -p /iventoy/iso \
     && mkdir -p /iventoy/data \
     && mkdir -p /var/log \
-    && chmod +x /iventoy/lib/iventoy
+    && chmod +x /iventoy/lib/iventoy \
+    && echo "=== Verifying files in final image ===" && \
+    ls -la /iventoy/data/ && \
+    echo "鉁?Files copied successfully"
 
 # Create a startup script that:
 # 1. Starts iventoy in background
