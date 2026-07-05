@@ -16,7 +16,6 @@ RUN apk add --no-cache \
     bash
 
 # Download iVentoy based on TARGETPLATFORM
-# TARGETPLATFORM is automatically set by Docker buildx (e.g., linux/amd64, linux/arm64)
 WORKDIR /tmp
 
 RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
@@ -30,7 +29,10 @@ RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
     wget --no-verbose --show-progress "${IVENTOY_URL}" -O iventoy.tar.gz && \
     tar -xzf iventoy.tar.gz && \
     rm -f iventoy.tar.gz && \
-    echo "✅ iVentoy ${IVENTOY_VERSION} downloaded and extracted successfully"
+    echo "Contents after extraction:" && \
+    ls -la && \
+    mv iventoy-* iventoy || true && \
+    echo "✅ iVentoy ${IVENTOY_VERSION} downloaded and prepared successfully"
 
 # ==================== Final Stage ====================
 FROM alpine:latest
