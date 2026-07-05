@@ -33,7 +33,7 @@ RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
     echo "Contents after extraction:" && \
     ls -la && \
     mv iventoy-* iventoy || true && \
-    echo "✅ iVentoy ${IVENTOY_VERSION} downloaded and prepared successfully"
+    echo "鉁?iVentoy ${IVENTOY_VERSION} downloaded and prepared successfully"
 
 # ==================== Final Stage ====================
 FROM ubuntu:latest
@@ -57,19 +57,30 @@ WORKDIR /iventoy
 # Create required directories
 RUN mkdir -p /iventoy/iso \
     && mkdir -p /iventoy/data \
+    && mkdir -p /var/log \
     && chmod +x /iventoy/lib/iventoy
 
-# Create a startup script that runs iventoy in the foreground
-RUN cat > /iventoy/run-iventoy.sh << 'EOF'
+# Create a startup script that:
+# 1. Starts iventoy in background
+# 2. Saves the PID
+# 3. Tails the log to keep container running
+RUN cat > /iventoy/start.sh << 'EOF'
 #!/bin/bash
 
-# Run iVentoy in foreground
+# Start iVentoy in background
 cd /iventoy
-exec env IVENTOY_API_ALL=1 ./lib/iventoy
+env IVENTOY_API_ALL=1 ./lib/iventoy > /var/log/iventoy.log 2>&1 &
+echo $! > /var/run/iventoy.pid
+
+echo "iVentoy started (PID: $(cat /var/run/iventoy.pid))"
+echo "Log file: /var/log/iventoy.log"
+
+# Tail the log to keep container running
+tail -f /var/log/iventoy.log
 
 EOF
 
-RUN chmod +x /iventoy/run-iventoy.sh
+RUN chmod +x /iventoy/start.sh
 
 # ExPOSE ports (iVentoy default ports)
 # 16000 - HTTP service
@@ -92,8 +103,7 @@ ENV IVENTOY_HTTP_PORT=16000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:16000 || exit 1
 
-# Use tini as init system, then run iventoy in foreground
+# Use tini as init system, then run our start script
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# Run iventoy in foreground (using exec so it replaces the shell and receives signals)
-CMD ["/iventoy/run-iventoy.sh"]
+CMD ["/iventoy/start.sh"]
