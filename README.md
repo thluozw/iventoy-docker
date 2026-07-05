@@ -2,49 +2,60 @@
 
 Dockerized iVentoy with **multi-architecture support** (amd64 & arm64).
 
-基于 [ziggyds/iventoy](https://github.com/ziggyds/iventoy) 改进，添加 ARM64 架构支持。
+> 🚀 **Available on DockerHub**: `javion666/iventoy-docker`  
+> 📦 **Also on GitHub Container Registry**: `ghcr.io/thluozw/iventoy-docker`
 
-## 什么是 iVentoy？
+## What is iVentoy?
 
-iVentoy 是 [Ventoy](https://www.ventoy.net) 的 PXE 网络启动版本，允许你通过网络启动 ISO 文件，无需逐台机器写入 USB。
+iVentoy is the PXE (network boot) version of [Ventoy](https://www.ventoy.net). It allows you to boot ISO files over network, eliminating the need to write USB drives for each machine.
 
-## ⚠️ 重要提示
+## ✨ Features
 
-由于 iVentoy 的分发限制，**自动构建可能无法正常工作**。请按照 [MANUAL-BUILD.md](MANUAL-BUILD.md) 的说明手动下载 iVentoy 并构建。
+- ✅ **Multi-Architecture**: Supports both `linux/amd64` and `linux/arm64`
+- ✅ **Easy Deployment**: Docker containerized, one-click startup
+- ✅ **Data Persistence**: ISO files and configurations are mounted externally
+- ✅ **Auto-Configuration**: Web UI for easy setup
 
-## 功能特点
+## 🚀 Quick Start
 
-✅ **多架构支持**: linux/amd64, linux/arm64 (ARM64/AArch64)  
-✅ **简化部署**: Docker 容器化，一键启动  
-✅ **数据持久化**: ISO 文件和配置外挂存储  
-✅ **自动更新**: 支持指定 iVentoy 版本  
-
-## 快速开始
-
-### 使用 Docker CLI
+### Option 1: Pull from DockerHub (Recommended)
 
 ```bash
-# 拉取镜像（自动匹配架构）
-docker pull ghcr.io/thluozw/iventoy-docker:latest
+# Pull the multi-arch image (auto-detects your CPU architecture)
+docker pull javion666/iventoy-docker:latest
 
-# 运行容器
+# Run the container
 docker run -d \
   --name iventoy \
   --privileged \
   --network host \
-  -v /path/to/your/iso:/iventoy/iso \
-  -v /path/to/data:/iventoy/data \
+  -v $(pwd)/iso:/iventoy/iso \
+  -v $(pwd)/data:/iventoy/data \
+  javion666/iventoy-docker:latest
+```
+
+### Option 2: Pull from GitHub Container Registry
+
+```bash
+docker pull ghcr.io/thluozw/iventoy-docker:latest
+
+docker run -d \
+  --name iventoy \
+  --privileged \
+  --network host \
+  -v $(pwd)/iso:/iventoy/iso \
+  -v $(pwd)/data:/iventoy/data \
   ghcr.io/thluozw/iventoy-docker:latest
 ```
 
-### 使用 Docker Compose
+### Option 3: Use Docker Compose
 
 ```yaml
 version: '3.8'
 
 services:
   iventoy:
-    image: ghcr.io/thluozw/iventoy-docker:latest
+    image: javion666/iventoy-docker:latest
     container_name: iventoy
     privileged: true
     network_mode: host
@@ -54,99 +65,115 @@ services:
     restart: unless-stopped
 ```
 
-## 构建多架构镜像
+Then run:
 
 ```bash
-# 设置 buildx
-docker buildx create --use --name multiarch || true
-docker buildx inspect --bootstrap
-
-# 构建并推送多架构镜像
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/thluozw/iventoy-docker:latest \
-  -t ghcr.io/thluozw/iventoy-docker:v1.0.20 \
-  --push \
-  .
+docker-compose up -d
 ```
 
-## 配置说明
+## 🌐 Access Web Interface
 
-### 目录结构
+After starting the container, access the web interface at:
+
+```
+http://<your-server-ip>:16000
+```
+
+**Default Credentials**:
+- Username: `admin`
+- Password: `admin`
+
+## 📁 Directory Structure
 
 ```
 .
-├── iso/           # 放置 ISO 文件的目录
+├── iso/           # Place your ISO files here
 │   ├── ubuntu-22.04.iso
 │   ├── debian-11.iso
 │   └── ...
-└── data/          # iVentoy 数据目录（配置、日志等）
+└── data/          # iVentoy data directory (config, logs, etc.)
 ```
 
-### 端口说明
+## 🔌 Ports
 
-| 端口 | 协议 | 用途 |
-|------|------|------|
-| 16000 | TCP | iVentoy Web 管理界面 |
-| 69 | UDP | TFTP 服务 |
-| 67, 68 | UDP | DHCP 服务 |
+| Port | Protocol | Description |
+|------|----------|-------------|
+| 16000 | TCP | iVentoy Web Management Interface |
+| 69 | UDP | TFTP Service |
+| 67, 68 | UDP | DHCP Service |
 
-### 访问 Web 界面
+## 🏗️ Supported Architectures
 
-容器启动后，访问：`http://<你的IP>:16000`
+| Architecture | Platform | Example Devices |
+|-------------|----------|----------------|
+| `linux/amd64` | x86_64 | Intel/AMD 64-bit CPUs, most PCs/servers |
+| `linux/arm64` | ARM64 | Apple Silicon (M1/M2/M3), Raspberry Pi 4+/5, AWS Graviton |
 
-默认用户名/密码：admin / admin
+Docker will automatically detect your CPU architecture and pull the correct image.
 
-## ARM64 设备支持
+## ⚙️ Configuration Notes
 
-✅ 已测试平台：
-- Raspberry Pi 4B/400 (Ubuntu/Debian)
-- Apple Silicon Mac (Docker Desktop)
-- 华为鲲鹏服务器
-- 亚马逊 Graviton (AWS)
+### Why `--privileged`?
 
-## 常见问题
+iVentoy needs to access network interfaces and raw sockets to provide PXE boot services, so it requires privileged mode.
 
-### 1. 为什么需要 `--privileged`？
+### Why `--network host`?
 
-iVentoy 需要访问网络接口和原始套接字来提供 PXE 启动服务，因此需要特权模式。
+PXE boot requires DHCP and TFTP services. Using host network mode simplifies network configuration.
 
-### 2. 为什么使用 `--network host`？
-
-PXE 启动需要 DHCP 和 TFTP 服务，使用 host 网络模式可以简化网络配置。
-
-### 3. ARM64 版本性能如何？
-
-在 Raspberry Pi 4B 上测试，iVentoy 运行良好，可以同时服务多台客户端。
-
-## 升级
+## 🔄 Upgrade
 
 ```bash
-# 拉取最新镜像
-docker pull ghcr.io/thluozw/iventoy-docker:latest
+# Pull latest image
+docker pull javion666/iventoy-docker:latest
 
-# 停止并删除旧容器
+# Stop and remove old container
 docker stop iventoy && docker rm iventoy
 
-# 重新运行（使用相同的卷挂载）
-docker run -d ...
+# Re-run with the same volume mounts
+docker run -d \
+  --name iventoy \
+  --privileged \
+  --network host \
+  -v $(pwd)/iso:/iventoy/iso \
+  -v $(pwd)/data:/iventoy/data \
+  javion666/iventoy-docker:latest
 ```
 
-## 许可证
+## 🐛 Troubleshooting
 
-iVentoy 遵循其自身的许可证。本项目仅提供 Docker 封装。
+### Check container logs
 
-## 贡献
+```bash
+docker logs iventoy
+```
 
-欢迎提交 Issue 和 Pull Request！
+### Verify architecture
 
-## 作者
+```bash
+# Check the architecture of the pulled image
+docker inspect javion666/iventoy-docker:latest | grep Architecture
+```
 
-- thluozw
-- 基于 [ziggyds/iventoy](https://github.com/ziggyds/iventoy) 改进
+## 📝 License
 
-## 链接
+iVentoy follows its own license. This project only provides Docker packaging.
 
-- iVentoy 官网: https://www.ventoy.net/en/doc_pxe.html
-- Ventoy GitHub: https://github.com/ventoy/PXE
-- 本项目 GitHub: https://github.com/thluozw/iventoy-docker
+## 🔗 Links
+
+- **iVentoy Official Site**: https://www.ventoy.net/en/doc_pxe.html
+- **iVentoy Releases**: https://github.com/ventoy/PXE/releases
+- **This Project (GitHub)**: https://github.com/thluozw/iventoy-docker
+- **DockerHub Repository**: https://hub.docker.com/r/javion666/iventoy-docker
+
+## 🙏 Acknowledgments
+
+This project is based on [ziggyds/iventoy](https://github.com/ziggyds/iventoy) with added ARM64 support.
+
+## 🤝 Contributing
+
+Issues and Pull Requests are welcome!
+
+---
+
+**⭐ If you find this project helpful, please give it a star on GitHub and DockerHub!**
