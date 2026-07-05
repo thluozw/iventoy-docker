@@ -94,4 +94,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 ENTRYPOINT ["/sbin/tini", "--"]
 
 # Default command
-CMD ["/iventoy/iventoy.sh", "-R"]
+# iventoy.sh accepts: start, stop, status
+CMD ["/iventoy/iventoy.sh", "start"]
