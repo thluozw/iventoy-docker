@@ -39,14 +39,26 @@ RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
 # 1. Replace 'grep -P' with 'grep -E' (BusyBox grep doesn't support -P)
 # 2. Fix parameter check logic (missing '!', causing wrong usage message)
 RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
-        # Fix 1: Replace grep -P with grep -E
+        # Fix 1: Replace ALL 'grep -P' with 'grep -E'
         sed -i 's/grep -P/grep -E/g' /tmp/iventoy/iventoy.sh && \
-        echo "✅ Fixed iventoy.sh: replaced 'grep -P' with 'grep -E'" && \
+        echo "✅ Fixed iventoy.sh: replaced all 'grep -P' with 'grep -E'" && \
         \
-        # Fix 2: Add missing '!' in parameter check (line ~187)
-        # Original: if echo $1 | grep -E -q '^(start|stop|status)$'; then
-        # Should be: if ! echo $1 | grep -E -q '^(start|stop|status)$'; then
-        sed -i 's/if echo \$1 | grep -E -q .\^(start|stop|status)\$.; then/if ! echo $1 | grep -E -q .^(start|stop|status)$.; then/' /tmp/iventoy/iventoy.sh && \
+        # Fix 2: Add missing '!' in parameter check
+        # The original code shows usage when parameter IS valid (WRONG!)
+        # We need to show usage when parameter is NOT valid
+        # Use awk to find and fix the line properly
+        awk ' \
+        /\/grep -E -q.*start.*stop.*status/ { \
+            if (match($0, /if echo.*\$1.*grep.*start.*stop.*status/)) { \
+                gsub(/if echo/, "if ! echo"); \
+                print; \
+                next; \
+            } \
+        } \
+        { print } \
+        ' /tmp/iventoy/iventoy.sh > /tmp/iventoy/iventoy.sh.tmp && \
+        mv /tmp/iventoy/iventoy.sh.tmp /tmp/iventoy/iventoy.sh && \
+        chmod +x /tmp/iventoy/iventoy.sh && \
         echo "✅ Fixed iventoy.sh: added missing '!' in parameter check"; \
     else \
         echo "⚠️ iventoy.sh not found, skipping fix"; \
@@ -55,7 +67,7 @@ RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
 # Show the fixed part for verification
 RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
         echo "=== Verifying fix ===" && \
-        grep -A 2 -B 2 'if.*echo.*\$1.*grep.*start' /tmp/iventoy/iventoy.sh || true; \
+        grep -A 2 -B 2 'start.*stop.*status' /tmp/iventoy/iventoy.sh | head -20; \
     fi
 
 # ==================== Final Stage ====================
