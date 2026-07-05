@@ -2,28 +2,25 @@
 # Supports: linux/amd64, linux/arm64
 # Based on: https://github.com/ziggyds/iventoy
 
-ARG ARCH=amd64
-FROM --platform=${BUILDPLATFORM} alpine:latest AS builder
+# ==================== Builder Stage ====================
+FROM --platform=$BUILDPLATFORM alpine:latest AS builder
 
 ARG IVENTOY_VERSION=1.0.37
-ARG ARCH
-ARG BUILDPLATFORM
-
-RUN echo "Building for platform: ${BUILDPLATFORM}, ARCH: ${ARCH}"
+ARG TARGETPLATFORM
 
 # Install dependencies
 RUN apk add --no-cache \
     wget \
     curl \
-    tar
+    tar \
+    bash
 
-# Download iVentoy based on architecture
+# Download iVentoy based on TARGETPLATFORM
+# TARGETPLATFORM is automatically set by Docker buildx (e.g., linux/amd64, linux/arm64)
 WORKDIR /tmp
 
-# Correct download URLs based on actual filenames from https://github.com/ventoy/PXE/releases/
-# x86_64: iventoy-1.0.37-linux-x86_64-free.tar.gz
-# arm64:  iventoy-1.0.37-linux-arm64-trial.tar.gz
-RUN if [ "${ARCH}" = "arm64" ]; then \
+RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
+    if [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
         IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-arm64-trial.tar.gz"; \
     else \
         IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-x86_64-free.tar.gz"; \
@@ -33,16 +30,13 @@ RUN if [ "${ARCH}" = "arm64" ]; then \
     wget --no-verbose --show-progress "${IVENTOY_URL}" -O iventoy.tar.gz && \
     tar -xzf iventoy.tar.gz && \
     rm -f iventoy.tar.gz && \
-    echo "iVentoy ${IVENTOY_VERSION} (${ARCH}) downloaded and extracted successfully"
+    echo "✅ iVentoy ${IVENTOY_VERSION} downloaded and extracted successfully"
 
-# Final stage
+# ==================== Final Stage ====================
 FROM alpine:latest
 
 LABEL maintainer="thluozw"
 LABEL description="iVentoy in Docker - Multi-architecture support (amd64/arm64)"
-
-ARG ARCH
-ENV ARCH=${ARCH}
 
 # Install runtime dependencies
 RUN apk add --no-cache \

@@ -63,4 +63,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            IVENTOY_VERSION=1.0.20
+            IVENTOY_VERSION=1.0.37
