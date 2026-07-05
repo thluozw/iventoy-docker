@@ -34,6 +34,16 @@ RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
     mv iventoy-* iventoy || true && \
     echo "✅ iVentoy ${IVENTOY_VERSION} downloaded and prepared successfully"
 
+# ==================== Fix iventoy.sh ====================
+# BusyBox grep does not support -P (Perl regex)
+# Replace 'grep -P' with 'grep -E' (extended regex) in iventoy.sh
+RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
+        sed -i 's/grep -P/grep -E/g' /tmp/iventoy/iventoy.sh && \
+        echo "✅ Fixed iventoy.sh: replaced 'grep -P' with 'grep -E'"; \
+    else \
+        echo "⚠️ iventoy.sh not found, skipping fix"; \
+    fi
+
 # ==================== Final Stage ====================
 FROM alpine:latest
 
@@ -41,17 +51,11 @@ LABEL maintainer="thluozw"
 LABEL description="iVentoy in Docker - Multi-architecture support (amd64/arm64)"
 
 # Install runtime dependencies
-# Note: Install GNU grep (grep-gnu) to replace BusyBox grep
-# iVentoy's iventoy.sh uses 'grep -P' which is not supported by BusyBox
 RUN apk add --no-cache \
     bash \
     curl \
     openrc \
-    tini \
-    grep-gnu
-
-# Make sure GNU grep is used (it's installed as /usr/bin/grep-gnu)
-RUN ln -sf /usr/bin/grep-gnu /usr/local/bin/grep || true
+    tini
 
 # Copy iVentoy from builder
 COPY --from=builder /tmp/iventoy /iventoy
