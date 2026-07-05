@@ -5,7 +5,9 @@
 ARG ARCH=amd64
 FROM --platform=\${BUILDPLATFORM} alpine:latest AS builder
 
-ARG IVENTOY_VERSION=1.0.20
+ARG IVENTOY_VERSION=1.0.37
+ARG IVENTOY_SUFFIX_amd64=free
+ARG IVENTOY_SUFFIX_arm64=trial
 ARG ARCH
 ARG BUILDPLATFORM
 
@@ -20,14 +22,13 @@ RUN apk add --no-cache \
 # Download iVentoy based on architecture
 WORKDIR /tmp
 RUN if [ "${ARCH}" = "arm64" ]; then \
-        IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/iventoy-${IVENTOY_VERSION}-linux-arm64.tar.gz"; \
+        IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-arm64-${IVENTOY_SUFFIX_arm64}.tar.gz"; \
     else \
-        IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/iventoy-${IVENTOY_VERSION}-linux-x64.tar.gz"; \
+        IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-x86_64-${IVENTOY_SUFFIX_amd64}.tar.gz"; \
     fi && \
+    IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/${IVENTOY_FILE}" && \
     echo "Downloading from: ${IVENTOY_URL}" && \
-    wget -q "${IVENTOY_URL}" -O iventoy.tar.gz || \
-    (echo "Primary download failed, trying alternative source..." && \
-     wget -q "https://mirrors.tuna.tsinghua.edu.cn/github-release/ventoy/PXE/LatestRelease/iventoy-${IVENTOY_VERSION}-linux-$([ "${ARCH}" = "arm64" ] && echo "arm64" || echo "x64").tar.gz" -O iventoy.tar.gz) && \
+    wget -q "${IVENTOY_URL}" -O iventoy.tar.gz && \
     tar -xzf iventoy.tar.gz && \
     rm iventoy.tar.gz
 
