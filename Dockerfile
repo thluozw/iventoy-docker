@@ -46,6 +46,7 @@ RUN apt-get update && apt-get install -y \
     bash \
     curl \
     procps \
+    tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy iVentoy from builder
@@ -58,64 +59,17 @@ RUN mkdir -p /iventoy/iso \
     && mkdir -p /iventoy/data \
     && chmod +x /iventoy/lib/iventoy
 
-# Create a simple start script (replace the buggy iventoy.sh)
-RUN cat > /iventoy/start-iventoy.sh << 'EOF'
+# Create a startup script that runs iventoy in the foreground
+RUN cat > /iventoy/run-iventoy.sh << 'EOF'
 #!/bin/bash
 
-# Simple iVentoy startup script
-# This replaces the buggy iventoy.sh from the original package
+# Run iVentoy in foreground
+cd /iventoy
+exec env IVENTOY_API_ALL=1 ./lib/iventoy
 
-IVENTOY_BIN="/iventoy/lib/iventoy"
-
-# Check if running as root
-uid=$(id -u)
-if [ $uid -ne 0 ]; then
-    echo "Please use sudo or run the script as root."
-    exit 1
-fi
-
-# Handle parameters
-case "$1" in
-    start)
-        echo "Starting iVentoy..."
-        cd /iventoy
-        env IVENTOY_API_ALL=1 $IVENTOY_BIN &
-        echo $! > /var/run/iventoy.pid
-        echo "iVentoy started (PID: $!)"
-        ;;
-    stop)
-        echo "Stopping iVentoy..."
-        if [ -f /var/run/iventoy.pid ]; then
-            kill $(cat /var/run/iventoy.pid)
-            rm -f /var/run/iventoy.pid
-            echo "iVentoy stopped"
-        else
-            echo "iVentoy is not running"
-        fi
-        ;;
-    status)
-        if [ -f /var/run/iventoy.pid ]; then
-            pid=$(cat /var/run/iventoy.pid)
-            if ps -p $pid > /dev/null 2>&1; then
-                echo "iVentoy is running (PID: $pid)"
-            else
-                echo "iVentoy is not running (stale PID file)"
-                rm -f /var/run/iventoy.pid
-            fi
-        else
-            echo "iVentoy is not running"
-        fi
-        ;;
-    *)
-        echo "Usage: $0 { start | stop | status }"
-        exit 1
-        ;;
-esac
-
-exit 0
 EOF
 
-RUN chmod +x /iventoy/start-iventoy.sh
+RUN chmod +x /iventoy/run-iventoy.sh
 
 # ExPOSE ports (iVentoy default ports)
 # 16000 - HTTP service
@@ -138,5 +92,8 @@ ENV IVENTOY_HTTP_PORT=16000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:16000 || exit 1
 
-# Use our simple start script instead of the buggy iventoy.sh
-CMD ["/iventoy/start-iventoy.sh", "start"]
+# Use tini as init system, then run iventoy in foreground
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Run iventoy in foreground (using exec so it replaces the shell and receives signals)
+CMD ["/iventoy/run-iventoy.sh"]
