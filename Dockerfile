@@ -35,13 +35,27 @@ RUN echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
     echo "✅ iVentoy ${IVENTOY_VERSION} downloaded and prepared successfully"
 
 # ==================== Fix iventoy.sh ====================
-# BusyBox grep does not support -P (Perl regex)
-# Replace 'grep -P' with 'grep -E' (extended regex) in iventoy.sh
+# Fix multiple issues in iventoy.sh:
+# 1. Replace 'grep -P' with 'grep -E' (BusyBox grep doesn't support -P)
+# 2. Fix parameter check logic (missing '!', causing wrong usage message)
 RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
+        # Fix 1: Replace grep -P with grep -E
         sed -i 's/grep -P/grep -E/g' /tmp/iventoy/iventoy.sh && \
-        echo "✅ Fixed iventoy.sh: replaced 'grep -P' with 'grep -E'"; \
+        echo "✅ Fixed iventoy.sh: replaced 'grep -P' with 'grep -E'" && \
+        \
+        # Fix 2: Add missing '!' in parameter check (line ~187)
+        # Original: if echo $1 | grep -E -q '^(start|stop|status)$'; then
+        # Should be: if ! echo $1 | grep -E -q '^(start|stop|status)$'; then
+        sed -i 's/if echo \$1 | grep -E -q .\^(start|stop|status)\$.; then/if ! echo $1 | grep -E -q .^(start|stop|status)$.; then/' /tmp/iventoy/iventoy.sh && \
+        echo "✅ Fixed iventoy.sh: added missing '!' in parameter check"; \
     else \
         echo "⚠️ iventoy.sh not found, skipping fix"; \
+    fi
+
+# Show the fixed part for verification
+RUN if [ -f /tmp/iventoy/iventoy.sh ]; then \
+        echo "=== Verifying fix ===" && \
+        grep -A 2 -B 2 'if.*echo.*\$1.*grep.*start' /tmp/iventoy/iventoy.sh || true; \
     fi
 
 # ==================== Final Stage ====================
