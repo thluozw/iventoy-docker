@@ -70,17 +70,38 @@ WORKDIR /iventoy
 RUN mkdir -p /iventoy/iso \
     && mkdir -p /iventoy/data \
     && mkdir -p /var/log \
-    && chmod +x /iventoy/lib/iventoy \
-    && echo "=== Verifying files in final image ===" && \
-    ls -la /iventoy/data/ && \
-    echo "鉁?Files copied successfully"
+    && chmod +x /iventoy/lib/iventoy
+
+# ====================================================================
+# CRITICAL FIX: Save default data files to a separate location
+# This solves the bind mount overwrite problem:
+# When users bind mount /iventoy/data/, the host directory (empty)
+# overwrites the container's /iventoy/data/ directory.
+# By saving defaults to /iventoy/data.default/, the start.sh script
+# can copy them back if they're missing.
+# ====================================================================
+RUN cp -r /iventoy/data /iventoy/data.default && \
+    echo "鉁?Default data files saved to /iventoy/data.default/" && \
+    ls -la /iventoy/data.default/
 
 # Create a startup script that:
-# 1. Starts iventoy in background
-# 2. Saves the PID
-# 3. Tails the log to keep container running
+# 1. Initializes /iventoy/data/ if bind mount wiped the files
+# 2. Starts iventoy in background
+# 3. Saves the PID
+# 4. Tails the log to keep container running
 RUN cat > /iventoy/start.sh << 'EOF'
 #!/bin/bash
+
+# ============================================================
+# Fix: Initialize data directory if bind mount wiped the files
+# ============================================================
+if [ ! -f /iventoy/data/iventoy.dat ] || [ ! -f /iventoy/data/mac.db ]; then
+    echo "鈿狅笍  Warning: /iventoy/data/ is missing required files!"
+    echo "   This usually happens when a bind mount overwrites the directory."
+    echo "   Copying default files from /iventoy/data.default/ ..."
+    cp -r /iventoy/data.default/* /iventoy/data/
+    echo "鉁?Default files restored to /iventoy/data/"
+fi
 
 # Start iVentoy in background
 cd /iventoy
