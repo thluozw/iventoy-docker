@@ -8,6 +8,10 @@ Dockerized iVentoy with **multi-architecture support** (amd64 & arm64).
 
 iVentoy 是 [Ventoy](https://www.ventoy.net) 的 PXE 网络启动版本，允许你通过网络启动 ISO 文件，无需逐台机器写入 USB。
 
+## ⚠️ 重要提示
+
+由于 iVentoy 的分发限制，**自动构建可能无法正常工作**。请按照 [MANUAL-BUILD.md](MANUAL-BUILD.md) 的说明手动下载 iVentoy 并构建。
+
 ## 功能特点
 
 ✅ **多架构支持**: linux/amd64, linux/arm64 (ARM64/AArch64)  

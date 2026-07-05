@@ -1,44 +1,37 @@
 # iVentoy Docker Image - Multi-Architecture Support
 # Supports: linux/amd64, linux/arm64
-
-ARG IVENTOY_VERSION=1.0.37
-ARG IVENTOY_SUFFIX_amd64=free
-ARG IVENTOY_SUFFIX_arm64=trial
+# NOTE: Due to iVentoy distribution restrictions, manual download is required
+# See MANUAL-BUILD.md for details
 
 # ==================== Builder Stage ====================
-FROM --platform=$BUILDPLATFORM alpine:latest AS builder
+FROM alpine:latest AS builder
 
-ARG IVENTOY_VERSION
-ARG IVENTOY_SUFFIX_amd64
-ARG IVENTOY_SUFFIX_arm64
-ARG BUILDPLATFORM
-
-# Determine architecture for download
-RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" && \
-    if [ "${BUILDPLATFORM}" = "linux/arm64" ]; then \
-        export ARCH_SUFFIX="${IVENTOY_SUFFIX_arm64}"; \
-        export ARCH_NAME="arm64"; \
-    else \
-        export ARCH_SUFFIX="${IVENTOY_SUFFIX_amd64}"; \
-        export ARCH_NAME="x86_64"; \
-    fi && \
-    echo "Building for: linux/${ARCH_NAME}, suffix: ${ARCH_SUFFIX}"
+ARG IVENTOY_VERSION=1.0.37
 
 # Install dependencies
 RUN apk add --no-cache \
-    wget \
-    curl \
     tar
 
-# Download iVentoy
+# Copy pre-downloaded iVentoy tarball
+# Users must place iventoy-*.tar.gz in the build context
 WORKDIR /tmp
-RUN IVENTOY_FILE="iventoy-${IVENTOY_VERSION}-linux-${ARCH_NAME}-${ARCH_SUFFIX}.tar.gz" && \
-    IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/${IVENTOY_FILE}" && \
-    echo "Downloading: ${IVENTOY_URL}" && \
-    wget --no-verbose --show-progress "${IVENTOY_URL}" -O iventoy.tar.gz && \
-    tar -xzf iventoy.tar.gz && \
+COPY iventoy-*.tar.gz iventoy.tar.gz || true
+COPY iventoy-${IVENTOY_VERSION}-linux-*.tar.gz iventoy.tar.gz 2>/dev/null || true
+
+# If no local file, show error message
+RUN if [ ! -f iventoy.tar.gz ]; then \
+        echo "==================================================" && \
+        echo "ERROR: iVentoy tarball not found!" && \
+        echo "Please download iVentoy manually." && \
+        echo "See MANUAL-BUILD.md for instructions." && \
+        echo "==================================================" && \
+        exit 1; \
+    fi
+
+# Extract iVentoy
+RUN tar -xzf iventoy.tar.gz && \
     rm -f iventoy.tar.gz && \
-    echo "Download and extraction complete"
+    echo "iVentoy extracted successfully"
 
 # ==================== Final Stage ====================
 FROM alpine:latest
@@ -58,11 +51,12 @@ COPY --from=builder /tmp/iventoy /iventoy
 
 WORKDIR /iventoy
 
-# Create required directories
+# Create required directories and set permissions
 RUN mkdir -p /iventoy/iso \
     && mkdir -p /iventoy/data \
     && chmod +x /iventoy/iventoy.sh \
-    && chmod +x /iventoy/iventoy
+    && chmod +x /iventoy/iventoy \
+    && ln -sf /iventoy/iventoy.sh /usr/local/bin/iventoy || true
 
 # Expose ports
 # 16000 - HTTP service
